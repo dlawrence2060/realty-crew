@@ -16,8 +16,11 @@ services:
       - ./library:/app/library
       - ./data:/app/data
       - claude-home:/claude
-    # Agents run Claude Code processes; keep a runaway from starving the other sites.
-    mem_limit: 2g
+    # The droplet has 2 GB for ~20 sites. Each working agent is a Claude Code process (250-400 MB);
+    # 2 at a time plus the server peaks around 1 GB. Past 1.2 GB the crew swaps (slower) instead of
+    # taking memory from the other sites; past 2 GB total it's stopped and restarted.
+    mem_limit: 1200m
+    memswap_limit: 2g
     networks:
       - caddy-proxy
 

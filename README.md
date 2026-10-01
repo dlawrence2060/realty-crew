@@ -104,7 +104,7 @@ Then:
 
 Updates: `cd ~/realty-crew && git pull && docker compose up -d --build`. `~/caddy-proxy/deploy.sh` includes it.
 
-Resources: each running agent is a Claude Code process, a few hundred MB. At most 2 agents run at once (`MAX_CONCURRENT` in `server/config.ts`); the container is capped at 2 GB.
+Resources: each running agent is a Claude Code process, a few hundred MB. At most 2 agents run at once (`MAX_CONCURRENT` in `server/config.ts`). The droplet has 2 GB of RAM for everything; the container gets 1.2 GB plus swap. If agents feel slow or restart, resize the droplet to 4 GB rather than raising the limit.
 
 ## Layout
 
