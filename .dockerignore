@@ -1,0 +1,9 @@
+node_modules
+data
+library
+memory
+agents
+skills
+.env
+.git
+.claude

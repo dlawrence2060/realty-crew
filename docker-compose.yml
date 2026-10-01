@@ -1,0 +1,29 @@
+services:
+  realty-crew:
+    build: .
+    container_name: realty-crew
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "4477"
+      PUBLIC_ORIGIN: https://realtytorealty.com
+    volumes:
+      - ./agents:/app/agents
+      - ./skills:/app/skills
+      - ./memory:/app/memory
+      - ./library:/app/library
+      - ./data:/app/data
+      - claude-home:/claude
+    # Agents run Claude Code processes; keep a runaway from starving the other sites.
+    mem_limit: 2g
+    networks:
+      - caddy-proxy
+
+volumes:
+  claude-home:
+
+networks:
+  caddy-proxy:
+    external: true

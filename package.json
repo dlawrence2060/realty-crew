@@ -1,0 +1,26 @@
+{
+  "name": "realty-crew",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Persistent Claude agents for a BC realtor: an office manager routes work to listing, CMA, brochure, magazine, legal-info, tenancy and rental specialists, with a web UI.",
+  "type": "module",
+  "engines": {
+    "node": ">=25"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server/index.ts",
+    "dev": "node --env-file-if-exists=.env --watch-path=server server/index.ts",
+    "check": "tsc -p ."
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.286",
+    "htm": "^3.1.1",
+    "preact": "^11.0.0",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "typescript": "^7.0.2"
+  }
+}

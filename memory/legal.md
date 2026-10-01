@@ -1,0 +1,1 @@
+- (2026-10-01) HBRP verified 2026-10-01: PLA s.42; B.C. Reg. 175/2022 (3 business days, 0.25% fee from deposit, no waiver; exempt: leased land/leasehold, auction, court-ordered, REDMA s.21). bcfsa.ca blocks WebFetch (403); curl with a browser user agent works. library/legal held no documents as of 2026-10-01.

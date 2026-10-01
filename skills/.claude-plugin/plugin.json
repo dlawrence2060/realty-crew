@@ -1,0 +1,5 @@
+{
+  "name": "realty-crew",
+  "version": "0.1.0",
+  "description": "Skill library for the realty crew agents. Each agent enables a subset in its agents/*.md frontmatter."
+}
