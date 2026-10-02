@@ -114,6 +114,7 @@ function App() {
   return html`
     <div class="top">
       <div class="brand"><span class="star">◆</span> ${state.owner && state.owner !== 'the realtor' ? `${state.owner}'s Crew` : 'Realty Crew'} <span class="brandsub">${state.brand.name}</span></div>
+      <${UsageMeter} u=${state.usage} />
       <span class="spacer"></span>
       ${sage && html`<a class="btn small primary" href="#/ask">Ask ${sage.name}</a>`}
       <a class="btn small" href="#/library" title="Reference files every agent can read">Library</a>
@@ -156,6 +157,48 @@ function App() {
         </div>
       `)}
     </div>
+  `;
+}
+
+/** When a window resets, in her words: "3:40 pm" today, else "Thu 9 am". */
+function resetLabel(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: d.getMinutes() ? '2-digit' : undefined });
+  return sameDay ? time : `${d.toLocaleDateString([], { weekday: 'short' })} ${time}`;
+}
+
+/** Claude plan usage left: the 5-hour and weekly windows. Click to re-check. */
+function UsageMeter({ u }) {
+  const [busy, setBusy] = useState(false);
+  if (!u || (!u.available && !u.error && !u.limited)) return null;
+  const refresh = async () => {
+    setBusy(true);
+    await api('POST', '/api/usage/refresh').catch(() => {});
+    setBusy(false);
+  };
+  const row = (label, w) => {
+    if (!w || w.used == null) return null;
+    const left = Math.max(0, Math.round(100 - w.used));
+    const tone = left <= 10 ? 'bad' : left <= 30 ? 'warn' : 'ok';
+    return html`
+      <div class=${'um ' + tone} title=${`${label}: ${Math.round(w.used)}% used${w.resetsAt ? `, resets ${new Date(w.resetsAt).toLocaleString()}` : ''}`}>
+        <span class="uml">${label}</span>
+        <span class="umbar"><i style=${{ width: left + '%' }}></i></span>
+        <span class="umv">${left}% left</span>
+        ${w.resetsAt && html`<small>resets ${resetLabel(w.resetsAt)}</small>`}
+      </div>`;
+  };
+  const plan = u.plan ? u.plan[0].toUpperCase() + u.plan.slice(1) : 'Claude';
+  return html`
+    <button class="usage" onClick=${refresh} title=${`Claude ${plan} plan usage${u.checkedAt ? `, checked ${ago(u.checkedAt)}` : ''}. Click to check now.`}>
+      ${u.limited
+        ? html`<div class="um bad"><b>Usage limit reached</b>${u.limited.resetsAt ? html`<small>resets ${resetLabel(u.limited.resetsAt)}</small>` : ''}</div>`
+        : u.available
+          ? html`${row('5-hour', u.fiveHour)}${row('Week', u.week)}`
+          : html`<div class="um"><small>${busy ? 'Checking…' : 'Usage unavailable'}</small></div>`}
+    </button>
   `;
 }
 

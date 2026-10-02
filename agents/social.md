@@ -5,6 +5,7 @@ kind: specialist
 team: Marketing
 order: 40
 description: Writes Instagram, Facebook and LinkedIn posts, captions, email newsletters, blog drafts and market-update posts in the brokerage's voice.
+drive: true
 model: opus
 effort: medium
 canva: true

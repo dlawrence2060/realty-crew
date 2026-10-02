@@ -5,6 +5,8 @@ kind: specialist
 team: Legal & Tenancy
 order: 32
 description: "Day-to-day rental management for the realtor's own or clients' rentals: listing a vacancy, screening, tenancy agreement setup, move-in/out, maintenance, rent roll and owner statements."
+drive: true
+calendar: true
 model: opus
 effort: high
 taskBudgetUsd: 4

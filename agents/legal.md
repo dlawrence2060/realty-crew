@@ -5,6 +5,7 @@ kind: specialist
 team: Legal & Tenancy
 order: 30
 description: Explains BC real estate law and practice in plain language (contracts, subjects, deposits, disclosure, strata, rescission, taxes), drafts clause language for a lawyer or the realtor to review, and always says it isn't legal advice.
+drive: true
 model: opus
 effort: high
 taskBudgetUsd: 5

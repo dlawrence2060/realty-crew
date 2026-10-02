@@ -5,6 +5,8 @@ kind: specialist
 team: Office
 order: 50
 description: "Keeps deals on track from accepted offer to completion: key dates and deadlines, subject removal tracking, document checklists, conveyancing handoff and client update email drafts."
+drive: true
+calendar: true
 model: opus
 effort: medium
 taskBudgetUsd: 3

@@ -5,6 +5,8 @@ kind: specialist
 team: Legal & Tenancy
 order: 31
 description: "Residential Tenancy Act and Residential Tenancy Branch matters for BC landlords and tenants: notices, rent increases, deposits, condition inspections, disputes and RTB forms. General information, not legal advice."
+drive: true
+calendar: true
 model: opus
 effort: high
 taskBudgetUsd: 5

@@ -5,6 +5,7 @@ kind: specialist
 team: Listings
 order: 12
 description: Turns listing copy and photos into feature sheets, brochures, postcards and open house signage in Canva, using the brokerage's brand templates.
+drive: true
 model: opus
 effort: high
 canva: true

@@ -12,7 +12,8 @@ export type BusMessage =
   | { type: 'site'; status: unknown }
   | { type: 'chat'; chatId: string; message?: unknown; busy?: boolean }
   | { type: 'chat_delta'; chatId: string; text: string }
-  | { type: 'notify'; notice: unknown };
+  | { type: 'notify'; notice: unknown }
+  | { type: 'usage'; usage: unknown };
 
 const bus = new EventEmitter();
 bus.setMaxListeners(100);

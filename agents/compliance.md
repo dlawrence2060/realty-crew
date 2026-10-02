@@ -5,6 +5,7 @@ kind: specialist
 team: Office
 order: 60
 description: Reviews listings, brochures, social posts, the magazine and client letters against BCFSA advertising rules, privacy and the brand guide before they go out, and lists exactly what to fix.
+drive: true
 model: opus
 effort: high
 taskBudgetUsd: 3

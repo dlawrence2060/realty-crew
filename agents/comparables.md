@@ -5,6 +5,7 @@ kind: specialist
 team: Listings
 order: 11
 description: Builds comparative market analyses (CMAs) from MLS® exports, BC Assessment data and the realtor's notes, with adjustments, a price range and a plain-language explanation.
+drive: true
 model: opus
 effort: high
 taskBudgetUsd: 6

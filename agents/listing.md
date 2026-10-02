@@ -5,6 +5,7 @@ kind: specialist
 team: Listings
 order: 10
 description: Writes MLS® public and REALTOR® remarks, feature lists, room-by-room details, listing prep checklists and open house copy from the facts provided.
+drive: true
 model: opus
 effort: high
 taskBudgetUsd: 5

@@ -17,6 +17,7 @@ import { kick, runNow, startScheduler } from './scheduler.ts';
 import { cleanName, contentType, libraryReady, listTree, removeTaskDir, safeJoin, taskDir, taskFiles } from './files.ts';
 import { refreshSite, siteStatus, startSiteRefresh } from './site.ts';
 import { AUTH_ON, gate } from './auth.ts';
+import { planUsage, refreshUsage, startUsageTracker } from './usage.ts';
 
 type Handler = (req: http.IncomingMessage, res: http.ServerResponse, params: Record<string, string>) => Promise<void> | void;
 const routes: Array<{ method: string; pattern: RegExp; keys: string[]; handler: Handler }> = [];
@@ -92,6 +93,7 @@ const qs = (req: http.IncomingMessage) => new URL(req.url ?? '', 'http://x').sea
 route('GET', '/api/state', (_req, res) => {
   json(res, 200, {
     authOn: AUTH_ON,
+    usage: planUsage(),
     agents: agentsView(),
     tasks: db.listTasks(),
     approvals: db.pendingApprovals(),
@@ -273,6 +275,11 @@ const siteChanged = () => publish({ type: 'site', status: siteStatus() });
 
 route('GET', '/api/site', (_req, res) => json(res, 200, siteStatus()));
 
+route('POST', '/api/usage/refresh', async (_req, res) => {
+  await refreshUsage();
+  json(res, 200, planUsage());
+});
+
 route('POST', '/api/site/refresh', (_req, res) => {
   refreshSite(siteChanged).then(() => publish({ type: 'library' }));
   json(res, 202, siteStatus());
@@ -288,7 +295,7 @@ function agentSlug(name: string) {
 route('POST', '/api/agents', async (req, res) => {
   const b = await body<{
     name?: string; title?: string; team?: string; description?: string; instructions?: string;
-    canva?: boolean; model?: string; effort?: string;
+    canva?: boolean; drive?: boolean; calendar?: boolean; model?: string; effort?: string;
     taskBudgetUsd?: number; monthlyBudgetUsd?: number; skills?: string[];
   }>(req);
   const name = b.name?.trim();
@@ -300,7 +307,7 @@ route('POST', '/api/agents', async (req, res) => {
   const known = new Set(listSkills().map((s) => s.name));
   const fm: Record<string, unknown> = {
     name, title: b.title.trim(), kind: 'specialist', ...(b.team?.trim() ? { team: b.team.trim() } : {}),
-    order: 90, description: b.description.trim(), ...(b.canva ? { canva: true } : {}),
+    order: 90, description: b.description.trim(), ...(b.canva ? { canva: true } : {}), ...(b.drive ? { drive: true } : {}), ...(b.calendar ? { calendar: true } : {}),
     model: ['opus', 'sonnet', 'haiku'].includes(b.model ?? '') ? b.model : 'opus',
     effort: ['low', 'medium', 'high', 'xhigh', 'max'].includes(b.effort ?? '') ? b.effort : 'high',
     taskBudgetUsd: Math.min(Math.max(Number(b.taskBudgetUsd) || 10, 1), 100),
@@ -464,8 +471,8 @@ route('GET', '/api/agents/:id', (_req, res, { id }) => {
 
 route('PUT', '/api/agents/:id/flags', async (req, res, { id }) => {
   if (!getAgent(id)) return json(res, 404, { error: 'Not found' });
-  const b = await body<{ canva?: boolean }>(req);
-  if (typeof b.canva === 'boolean') setAgentFlag(id, 'canva', b.canva);
+  const b = await body<{ canva?: boolean; drive?: boolean; calendar?: boolean }>(req);
+  for (const k of ['canva', 'drive', 'calendar'] as const) if (typeof b[k] === 'boolean') setAgentFlag(id, k, b[k]);
   publish({ type: 'agents' });
   json(res, 200, getAgent(id));
 });
@@ -588,4 +595,5 @@ server.listen(PORT, HOST, () => {
   console.log(API_KEY_AVAILABLE ? 'ANTHROPIC_API_KEY is set; agents use it only while the API key toggle is on.' : 'Agents use the claude.ai login.');
   startScheduler();
   startSiteRefresh(siteChanged);
+  startUsageTracker();
 });

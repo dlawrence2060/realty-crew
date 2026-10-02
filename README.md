@@ -58,15 +58,24 @@ Every task has a folder (`data/outputs/<task>/`):
 - The agent works there, and its deliverables appear under **Files** in the task panel, ready to open or download.
 - When the manager assigns work, the parent task's attachments are copied to each subtask.
 
-## Canva
+## Connectors: Canva, Google Drive, Google Calendar
 
-Quinn, Mercer and Nova (`canva: true`) can use the **Canva connector** on the Claude account the server is logged in with:
-- **Run freely:** search, read, create, autofill and export.
-- **Wait for your Allow:** share, comment, move and delete.
+Agents use the claude.ai connectors on Kara's Claude account, the one the server is logged in with. Connect them in claude.ai → Settings → Connectors. Each agent's access is set by `canva:`, `drive:` and `calendar:` in its file, or with the toggles in its panel.
 
-To set it up, connect Canva in claude.ai → Settings → Connectors on that account, and log the server in with that account (see Deploy).
+| Connector | Who | Runs freely | Waits for Kara's Allow |
+|---|---|---|---|
+| Canva | Quinn, Mercer, Nova | search, read, create, autofill, export | share, comment, move, delete |
+| Google Drive | Sage (read only), every specialist | search, read, create new Docs/Sheets, copy | edit an existing file, share, trash |
+| Google Calendar | Sage (read only), Tess, Rowan, Reid, Ivy, Mercer | read events, find free time | create, change, delete events (attendees may be notified) |
 
-Any other connector on that account (Gmail, Drive, Jira…) is blocked by `server/policy.ts`. The server runs on Kara's own Claude account, so the usage and the Canva connection are hers.
+Agents propose calendar events and only add them when the task asks; they never invite people unless told to. Every other connector on the account (Gmail, Jira, Claude Docs…) is blocked in `server/policy.ts`.
+
+## Plan usage
+
+The meter at the top left shows how much of the Claude plan is left: the 5-hour window and the week, with reset times.
+- It's checked every 5 minutes and after every run, and updated live from agents' rate-limit events. Click it to check now.
+- It turns red when a limit is hit.
+- It uses the Agent SDK's experimental usage call (`server/usage.ts`). If a future SDK changes that call, the meter hides itself; the rest of the app is unaffected.
 
 ## REW and MLS®
 

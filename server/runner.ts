@@ -18,9 +18,10 @@ import * as db from './db.ts';
 import type { Task } from './db.ts';
 import { publish } from './bus.ts';
 import { classify, type PolicyContext } from './policy.ts';
-import { appendMemory, getAgent, loadRoster, readMemory, sdkSkillIds, type AgentDef } from './roster.ts';
+import { agentConnectors, appendMemory, getAgent, loadRoster, readMemory, sdkSkillIds, type AgentDef } from './roster.ts';
 import { taskDir, taskFiles } from './files.ts';
 import { approvalRequested, taskStatusChanged } from './notify.ts';
+import { noteMessage, refreshUsage } from './usage.ts';
 
 type Outcome = {
   status: 'done' | 'needs_input' | 'blocked';
@@ -107,7 +108,7 @@ function waitForApproval(task: Task, toolName: string, input: Record<string, unk
 
 export const GROUND_RULES = `
 ## Ground rules for the crew
-- You work for ${OWNER}, a licensed REALTOR® with ${BRAND.name} (${BRAND.site}) in British Columbia, Canada. Work in Canadian English, Canadian dollars, metric and imperial both where the market uses them (square feet for homes).
+- You work for ${OWNER}, a licensed REALTOR® with ${BRAND.name} (${BRAND.site}) in British Columbia, Canada. Her time zone is America/Vancouver (Pacific); use it for every date and time. Work in Canadian English, Canadian dollars, metric and imperial both where the market uses them (square feet for homes).
 - BC context: real estate is regulated by the BC Financial Services Authority (BCFSA) under the Real Estate Services Act (RESA) and its Rules. Residential tenancies fall under the Residential Tenancy Act, administered by the Residential Tenancy Branch (RTB). Strata matters fall under the Strata Property Act. MLS® and REALTOR® are trademarks of CREA; use them correctly.
 - The library at ${LIBRARY_DIR} is your reference shelf: forms, rules, brand guide, past work, market data, client files ${OWNER} has added. Read library/README.md first, then the README in any folder you use. Prefer the library over memory or the web, and say which files you relied on.
 - The brokerage website is snapshotted as text in ${SITE_SNAPSHOT_DIR} (team, listings, buildings, neighbourhoods, blog, testimonials). Grep it for voice, facts about the team and past listings before fetching the live site.
@@ -150,6 +151,14 @@ function systemAppend(agent: AgentDef, task: Task, outDir: string) {
   if (agent.canva) {
     parts.push(`## Canva
 You can use ${OWNER}'s Canva through the Canva connector tools (search designs and brand templates, read and autofill designs, create designs, export to PDF/PNG). Start from the brokerage's brand templates when they exist; search before creating from scratch. Creating, autofilling and exporting run freely; sharing, commenting, moving or deleting waits for ${OWNER}'s OK. Put the design's link (and any exported file) in your report. If the Canva tools aren't available, say so and deliver the copy and layout notes as files instead.`);
+  }
+  if (agent.drive) {
+    parts.push(`## Google Drive
+You can use ${OWNER}'s Google Drive through the Google Drive connector tools. Search and read her files (listing folders, past brochures, magazine drafts, client documents) when the task points to them or the library doesn't have what you need. You may create new files: when a deliverable is meant to be edited or shared in Google Docs or Sheets, create it there as well as saving the .md/.csv in the task folder, name it clearly, and put its link in your report. Editing an existing file, sharing and trashing wait for ${OWNER}'s OK; ask for those only when the task needs them. Client documents are private: don't copy them anywhere outside this task.`);
+  }
+  if (agent.calendar) {
+    parts.push(`## Google Calendar
+You can read ${OWNER}'s Google Calendar: check availability, find showings, deadlines and appointments, and line work up against them. Creating, changing or deleting events always waits for ${OWNER}'s OK, because attendees can be notified. When dates matter (subject removals, completion, notice periods, print deadlines), list the events you propose (title, date and time in Pacific time, no attendees unless asked) and add them only if the task asks you to; never invite clients or other people unless ${OWNER} explicitly said to.`);
   }
   parts.push(memoryBlock(agent));
   parts.push(`## Finishing
@@ -329,7 +338,7 @@ export async function runTask(taskId: string) {
   let failed: string | undefined;
 
   try {
-    const policyCtx: PolicyContext = { writableRoot: agent.kind === 'manager' ? null : outDir };
+    const policyCtx: PolicyContext = { writableRoot: agent.kind === 'manager' ? null : outDir, connectors: agentConnectors(agent) };
     const currentTask = task;
 
     const gate: HookCallback = async (input) => {
@@ -341,9 +350,6 @@ export async function runTask(taskId: string) {
     };
 
     const canUseTool: CanUseTool = async (toolName, input, { signal }) => {
-      if (/^mcp__claude_ai_canva__/i.test(toolName) && !agent.canva) {
-        return { behavior: 'deny', message: 'Canva is for the design agents. Ask the brochure or magazine agent, or deliver copy as a file.' };
-      }
       const v = classify(toolName, input, policyCtx);
       if (v.action === 'allow') return { behavior: 'allow', updatedInput: input };
       if (v.action === 'deny') return { behavior: 'deny', message: v.reason };
@@ -384,6 +390,7 @@ export async function runTask(taskId: string) {
         if (msg.subtype === 'success') resultText = msg.result;
         else failed = `Run ended: ${msg.subtype}`;
       }
+      noteMessage(msg);
       record(task.id, msg);
     }
   } catch (e) {
@@ -391,6 +398,7 @@ export async function runTask(taskId: string) {
     if (failed) event(task.id, 'error', { text: failed });
   } finally {
     running.delete(task.id);
+    refreshUsage();
   }
 
   const latest = db.getTask(task.id)!;

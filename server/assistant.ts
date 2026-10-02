@@ -6,6 +6,8 @@ import { publish } from './bus.ts';
 import { agentEnv } from './env.ts';
 import { notify } from './notify.ts';
 import { GROUND_RULES } from './runner.ts';
+import { connectorKind } from './policy.ts';
+import { noteMessage, refreshUsage } from './usage.ts';
 import { appendMemory, loadRoster, readMemory, sdkSkillIds, type AgentDef } from './roster.ts';
 
 /**
@@ -39,16 +41,19 @@ function safeShell(cmd: string) {
 }
 
 const READ_TOOLS = new Set(['Read', 'Glob', 'Grep', 'LS', 'WebFetch', 'WebSearch', 'Skill', 'ToolSearch', 'TodoWrite']);
-const CONNECTOR_READ = /^(get|search|list|lookup|fetch|find|read|query|resolve|describe)/i;
+const CONNECTOR_READ = /^(get|search|list|lookup|fetch|find|read|query|resolve|download|suggest|check|describe)/i;
+const SAGE_CONNECTORS = ['drive', 'calendar', 'canva'];
 
 const canUseTool: CanUseTool = async (name, input) => {
   if (READ_TOOLS.has(name) || name.startsWith('mcp__sage__')) return { behavior: 'allow', updatedInput: input };
   if (name === 'Bash' && safeShell(String(input.command ?? ''))) return { behavior: 'allow', updatedInput: input };
-  // Canva reads only (find a design or template); no other connectors on the login.
-  if (/^mcp__claude_ai_canva__/i.test(name) && CONNECTOR_READ.test(name.split('__').pop() ?? '')) return { behavior: 'allow', updatedInput: input };
+  // Read-only use of the connectors Sage has; no other connectors on the login.
+  const [, server = '', fn = ''] = name.match(/^mcp__claude_ai_(.+?)__(.+)$/) ?? [];
+  const kind = server ? connectorKind(server) : null;
+  if (kind && SAGE_CONNECTORS.includes(kind) && CONNECTOR_READ.test(fn)) return { behavior: 'allow', updatedInput: input };
   return {
     behavior: 'deny',
-    message: 'Sage is read-only. Use Read/Grep/WebFetch, or draft_task if something needs doing.',
+    message: 'Sage is read-only. Use Read/Grep/WebFetch and read-only Drive/Calendar lookups, or draft_task if something needs doing (adding events, editing docs).',
   };
 };
 
@@ -71,7 +76,8 @@ function systemAppend(sage: AgentDef) {
     `## Where your knowledge comes from
 1. The website snapshot at ${SITE_SNAPSHOT_DIR}: a text copy of ${BRAND.site}, one file per page, grouped by section (team, property, building, neighbourhood, post, page, testimonial...). Start with its README.md. Grep it first for anything about the brokerage, the team, past and current listings, buildings, neighbourhoods, blog posts and voice.
 2. The rest of the library at ${LIBRARY_DIR}: ${OWNER}'s reference shelf (forms, rules, brand guide, past magazines, market data). library/README.md explains the folders.
-3. The live site with WebFetch (${BRAND.site}) when the snapshot looks stale or is missing a page, and WebSearch for public facts (BCFSA, RTB, BC Assessment, market news). Say when an answer came from the live web rather than the snapshot.
+3. ${OWNER}'s Google Drive and Google Calendar (read-only), through the connector tools: find a document she mentions, check what's on her calendar ("what do I have Thursday?", "when is the Smith completion?"), or ground an answer in her own files. Calendar times are Pacific. If a connector says it needs authentication, tell her to connect it in claude.ai → Settings → Connectors.
+4. The live site with WebFetch (${BRAND.site}) when the snapshot looks stale or is missing a page, and WebSearch for public facts (BCFSA, RTB, BC Assessment, market news). Say when an answer came from the live web rather than the snapshot.
 Cite the page URL (each snapshot file has a URL: line) or the library file you used.`,
     `## The crew (agents ${OWNER} assigns work to; you are not one of them)
 The office manager routes work; specialists each produce files in their task folder. The crew app is at ${CREW_ROOT} (README.md explains it).
@@ -166,6 +172,7 @@ export async function chatTurn(chatId: string, text: string) {
         env: agentEnv(),
       },
     })) {
+      noteMessage(msg);
       if (msg.type === 'system' && msg.subtype === 'init' && msg.session_id !== chat.session_id) {
         db.updateChat(chatId, { session_id: msg.session_id });
       }
@@ -207,6 +214,7 @@ export async function chatTurn(chatId: string, text: string) {
       notify({ title: `${sage.name} answered`, body: reply.replace(/[*`#|_]/g, '').slice(0, 160), url: `/ask/${chatId}`, tag: `chat-${chatId}` });
     }
     running.delete(chatId);
+    refreshUsage();
     db.updateChat(chatId, {});
     publish({ type: 'chat', chatId, busy: false });
     publish({ type: 'agents' });

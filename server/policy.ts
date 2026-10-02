@@ -11,7 +11,11 @@ export type Verdict = { action: 'allow' } | { action: 'ask'; reason: string } | 
 export type PolicyContext = {
   /** The task's output folder: the agent writes here freely. */
   writableRoot: string | null;
+  /** claude.ai connectors this agent may use (from its frontmatter). */
+  connectors: Connector[];
 };
+
+export type Connector = 'canva' | 'drive' | 'calendar';
 
 const ALWAYS_ALLOW = new Set([
   'Read', 'Glob', 'Grep', 'LS', 'WebFetch', 'WebSearch', 'TodoWrite', 'Agent', 'Task', 'ToolSearch', 'Skill',
@@ -34,17 +38,33 @@ function inside(root: string, p: string) {
   return abs === root || abs.startsWith(root + path.sep);
 }
 
-const CONNECTOR_READ = /^(get|search|list|lookup|fetch|find|read|query|resolve|whoami|describe)/i;
-// Canva writes that only touch the owner's own Canva account (new designs, autofill, exports) run freely;
-// anything that shares, comments, moves into a folder others see, or deletes waits.
-const CANVA_ASK = /(share|comment|reply|delete|move|folder|publish|invite|transfer)/i;
+const CONNECTOR_READ = /^(get|search|list|lookup|fetch|find|read|query|resolve|download|suggest|check|describe|whoami)/i;
+
+/** Which crew connector a claude.ai connector server is, or null for ones the crew never uses (Gmail, Jira, Claude Docs...). */
+export function connectorKind(server: string): Connector | null {
+  if (/^canva$/i.test(server)) return 'canva';
+  if (/^google_?drive$/i.test(server)) return 'drive';
+  if (/^google_?calendar$/i.test(server)) return 'calendar';
+  return null;
+}
 
 /**
- * The claude.ai login can carry connectors that belong to someone else's work (Gmail, Drive, Jira...).
- * The crew only uses Canva.
+ * What a connector call may do without asking:
+ * - Canva: anything that stays in her own account (create, autofill, export); sharing, comments, moves and deletes ask.
+ * - Drive: reading, and creating new files or copies; editing an existing file, sharing and trashing ask.
+ * - Calendar: reading only; every change asks, since events can notify attendees.
  */
-export function isAllowedConnector(server: string) {
-  return /^canva$/i.test(server);
+function connectorVerdict(kind: Connector, name: string): Verdict {
+  if (CONNECTOR_READ.test(name)) return { action: 'allow' };
+  const what = name.replace(/[-_]/g, ' ');
+  if (kind === 'canva') {
+    return /(share|comment|reply|delete|move|folder|publish|invite|transfer)/i.test(name) ? { action: 'ask', reason: `Canva: ${what}` } : { action: 'allow' };
+  }
+  if (kind === 'drive') {
+    if (/^(create|copy)/i.test(name)) return { action: 'allow' };
+    return { action: 'ask', reason: `Google Drive: ${what}${/share/i.test(name) ? ' (gives someone access)' : /update/i.test(name) ? ' (changes an existing file)' : ''}` };
+  }
+  return { action: 'ask', reason: `Google Calendar: ${what} (attendees may be notified)` };
 }
 
 export function classify(tool: string, input: Record<string, unknown>, ctx: PolicyContext): Verdict {
@@ -52,9 +72,11 @@ export function classify(tool: string, input: Record<string, unknown>, ctx: Poli
 
   if (tool.startsWith('mcp__claude_ai_')) {
     const [, server = '', name = ''] = tool.match(/^mcp__claude_ai_(.+?)__(.+)$/) ?? [];
-    if (!isAllowedConnector(server)) return { action: 'deny', reason: `The ${server.replace(/_/g, ' ')} connector isn't part of this crew` };
-    if (CONNECTOR_READ.test(name) || !CANVA_ASK.test(name)) return { action: 'allow' };
-    return { action: 'ask', reason: `Canva: ${name.replace(/[-_]/g, ' ')}` };
+    const kind = connectorKind(server);
+    if (!kind) return { action: 'deny', reason: `The ${server.replace(/_/g, ' ')} connector isn't part of this crew` };
+    if (!ctx.connectors.includes(kind)) return { action: 'deny', reason: `This agent doesn't have ${server.replace(/_/g, ' ')} access. Ask a teammate who does, or deliver a file instead.` };
+    if (/authenticat/i.test(name)) return { action: 'deny', reason: `${server.replace(/_/g, ' ')} isn't connected on this Claude account. Say so in your report; it's connected in claude.ai → Settings → Connectors.` };
+    return connectorVerdict(kind, name);
   }
 
   if (FILE_WRITERS.has(tool)) {

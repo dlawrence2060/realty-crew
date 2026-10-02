@@ -15,6 +15,10 @@ export type AgentDef = {
   skills: string[];
   /** Can use the Canva connector (designs, brand templates, exports). */
   canva: boolean;
+  /** Can use Google Drive (read her docs, create new Docs/Sheets). */
+  drive: boolean;
+  /** Can use Google Calendar (read; changes ask first). */
+  calendar: boolean;
   description: string;
   model: string;
   effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
@@ -43,6 +47,8 @@ function loadOne(file: string): AgentDef {
     team: fm.team ?? null,
     skills: fm.skills ?? [],
     canva: fm.canva === true,
+    drive: fm.drive === true,
+    calendar: fm.calendar === true,
     description: fm.description ?? '',
     model: fm.model ?? 'opus',
     effort: fm.effort ?? 'high',
@@ -147,8 +153,13 @@ export function setAgentSkills(agentId: string, skills: string[]) {
   fs.writeFileSync(file, `---\n${String(doc).trimEnd()}\n---\n${m[2]}`);
 }
 
-/** Set or clear a boolean flag (canva) in an agent's frontmatter, keeping the rest of the file. */
-export function setAgentFlag(agentId: string, key: 'canva', on: boolean) {
+/** The claude.ai connectors an agent may use. */
+export function agentConnectors(a: AgentDef): Array<'canva' | 'drive' | 'calendar'> {
+  return (['canva', 'drive', 'calendar'] as const).filter((k) => a[k]);
+}
+
+/** Set or clear a connector flag in an agent's frontmatter, keeping the rest of the file. */
+export function setAgentFlag(agentId: string, key: 'canva' | 'drive' | 'calendar', on: boolean) {
   const file = path.join(AGENTS_DIR, `${agentId}.md`);
   const m = fs.readFileSync(file, 'utf8').match(FRONTMATTER);
   if (!m) throw new Error(`${file}: missing frontmatter`);

@@ -5,6 +5,8 @@ kind: specialist
 team: Magazine
 order: 20
 description: Plans each issue of the brokerage's magazine, writes and edits feature articles, market updates and listing spreads, and keeps the issue on schedule for the printer.
+drive: true
+calendar: true
 model: opus
 effort: high
 taskBudgetUsd: 6

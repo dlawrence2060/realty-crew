@@ -5,6 +5,8 @@ kind: specialist
 team: Magazine
 order: 21
 description: Lays out the magazine in Canva from the editor's flat plan and copy, prepares print-ready PDFs to the printer's specs, and writes the printer handoff.
+drive: true
+calendar: true
 model: opus
 effort: high
 canva: true
